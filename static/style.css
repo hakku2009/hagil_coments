@@ -324,3 +324,4 @@ button.small {
         width: 100%;
     }
 }
+.comment-reply{margin-top:10px;padding:10px;border-left:3px solid currentColor;background:rgba(127,127,127,.08);border-radius:6px}
