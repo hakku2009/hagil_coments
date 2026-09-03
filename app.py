@@ -222,7 +222,10 @@ def force_logout(student_number):
 @app.route("/teacher/clear-feedbacks",methods=["POST"])
 @teacher_required
 def clear_feedbacks():
-    conn=get_db(); conn.execute("DELETE FROM feedback"); conn.commit(); conn.close(); flash("모든 평가 내역을 초기화했습니다."); return redirect(url_for("teacher"))
+    conn=get_db(); conn.execute("DELETE FROM feedback"); conn.commit(); conn.close()
+    # Google Sheets의 평가내역도 함께 초기화
+    sheet_sync("reset_feedbacks", {})
+    flash("모든 평가 내역을 초기화했습니다."); return redirect(url_for("teacher"))
 
 @app.route("/teacher/student/<student_number>")
 @teacher_required
