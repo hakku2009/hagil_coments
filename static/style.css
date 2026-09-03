@@ -325,3 +325,56 @@ button.small {
     }
 }
 .comment-reply{margin-top:10px;padding:10px;border-left:3px solid currentColor;background:rgba(127,127,127,.08);border-radius:6px}
+
+
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 16px;
+    }
+
+    .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+        width: 100%;
+        min-width: 0;
+    }
+
+    th,
+    td {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    button,
+    .button,
+    a.button {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 관리 화면의 버튼 영역 */
+    .actions,
+    .admin-actions,
+    .student-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .actions button,
+    .admin-actions button,
+    .student-actions button,
+    .actions a,
+    .admin-actions a,
+    .student-actions a {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+}
