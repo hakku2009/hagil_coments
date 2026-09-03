@@ -1,15 +1,1 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="card login-card">
-    <h1>학생 입장</h1>
-    <p class="muted">학번과 이름을 입력하면 해당 학번의 코멘트 기록에 연결됩니다.</p>
-    <form method="post">
-        <label>학번</label>
-        <input name="student_number" inputmode="numeric" maxlength="20" placeholder="예: 2107" required autofocus>
-        <label>이름</label>
-        <input name="name" maxlength="30" placeholder="예: 홍길동" required>
-        <button type="submit">입장하기</button>
-    </form>
-    <a class="teacher-link" href="{{ url_for('teacher_login') }}">선생님 관리 화면</a>
-</div>
-{% endblock %}
+{% extends "base.html" %}{% block content %}<div class="card login-card"><h1>학생 로그인</h1><p class="muted">학번으로 로그인합니다. 처음 로그인하는 학생의 초기 비밀번호는 <strong>1234</strong>입니다.</p><form method="post"><label>학번</label><input name="student_number" inputmode="numeric" placeholder="예: 21024" required autofocus><label>이름</label><input name="name" placeholder="예: 홍길동" required><label>비밀번호</label><input type="password" name="password" value="1234" required><button type="submit">로그인</button></form><a class="teacher-link" href="{{ url_for('teacher_login') }}">선생님 관리 화면</a></div>{% endblock %}

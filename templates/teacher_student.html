@@ -1,12 +1,1 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="card">
-    <a class="back-link" href="{{ url_for('teacher') }}">← 선생님 관리로 돌아가기</a>
-    <p class="muted">학생 코멘트 기록</p>
-    <h1>{{ student['student_number'] }} {{ student['name'] }}</h1>
-    <div class="notice">이 학번을 발표자로 설정했을 때 받은 코멘트가 모두 표시됩니다.</div>
-    {% for c in comments %}
-    <div class="comment"><div class="comment-meta">{{ c["sender_number"] }} {{ c["sender_name"] }}</div><div class="comment-text">{{ c["content"] }}</div><div class="comment-time">{{ c["created_at"]|kst }}</div></div>
-    {% else %}<div class="empty">아직 받은 코멘트가 없습니다.</div>{% endfor %}
-</div>
-{% endblock %}
+{% extends "base.html" %}{% block content %}<div class="card"><h1>{{ student['student_number'] }} {{ student['name'] }}</h1><div class="presenter-box"><span>전체 평균</span><strong>{{ '%.2f'|format(avg) if avg is not none else '-' }}/5</strong></div><div class="presenter-box"><span>조원 평가 평균</span><strong>{{ '%.2f'|format(peer_avg) if peer_avg is not none else '-' }}/5</strong></div><div class="presenter-box"><span>발표자 평가 평균</span><strong>{{ '%.2f'|format(presenter_avg) if presenter_avg is not none else '-' }}/5</strong></div><div class="presenter-box"><span>조</span><strong>{{ student['group_name'] or '조 없음' }}</strong></div><div class="presenter-box"><span>받은 평균 점수</span><strong>{{ '%.2f'|format(avg) if avg is not none else '-' }} / 5</strong></div></div><div class="card"><h2>개별 평가 내역</h2>{% for f in feedbacks %}<div class="comment"><div class="comment-meta">점수 {{ '조원' if f['evaluation_type']=='peer' else '발표자' }} 평가 · {{ f['score'] }}/5 · {{ f['created_at']|kst }}</div><div class="comment-text">{{ f['content'] }}</div><div class="muted">점수 준 학생: {{ f['sender_number'] }} {{ f['sender_name'] }}{% if f['reply'] %}<br>학생 답문: {{ f['reply'] }}{% endif %}</div></div>{% else %}<div class="empty">받은 평가가 없습니다.</div>{% endfor %}</div>{% endblock %}

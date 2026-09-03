@@ -1,51 +1,12 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="card">
-    <p class="muted">학생</p>
-    <h1>{{ student_number }} {{ student_name }}</h1>
-    <a class="button secondary full" href="{{ url_for('presenter') }}">내가 받은 코멘트 기록 보기</a>
-
-    {% if presenter %}
-        <div class="presenter-box">
-            <span>현재 발표자</span>
-            <strong>{{ presenter.number }} {{ presenter.name }}</strong>
-        </div>
-        {% if student_number == presenter.number %}
-            <div class="notice">현재 발표 중입니다. 다른 학생이 보내는 코멘트가 이 페이지의 기록에 저장됩니다.</div>
-        {% else %}
-            <h2>발표 코멘트 보내기</h2>
-            <form id="commentForm">
-                <div class="emoji-row">
-                    {% for emoji in ['👍','😊','👏','🔥','💡','❤️'] %}
-                    <button type="button" class="emoji" data-emoji="{{ emoji }}">{{ emoji }}</button>
-                    {% endfor %}
-                </div>
-                <textarea id="content" name="content" maxlength="500" placeholder="{{ presenter.name }} 발표에 대한 코멘트를 입력하세요." required></textarea>
-                <button type="submit">코멘트 보내기</button>
-            </form>
-            <div id="result"></div>
-        {% endif %}
-    {% else %}
-        <div class="notice">선생님이 아직 발표자를 설정하지 않았습니다.</div>
-    {% endif %}
-</div>
+{% extends "base.html" %}{% block content %}
+<div class="card"><p class="muted">학생</p><h1>{{ me['student_number'] }} {{ me['name'] }}</h1><div class="presenter-box"><span>내 조</span><strong>{{ me['group_name'] or '아직 조가 지정되지 않았습니다.' }}</strong></div><div class="presenter-box"><span>전체 평균</span><strong>{{ '%.2f'|format(avg) if avg is not none else '-' }} / 5</strong></div><div class="presenter-box"><span>조원 평가 평균</span><strong>{{ '%.2f'|format(peer_avg) if peer_avg is not none else '-' }} / 5</strong></div><div class="presenter-box"><span>발표자 평가 평균</span><strong>{{ '%.2f'|format(presenter_avg) if presenter_avg is not none else '-' }} / 5</strong></div></div>
+<div class="card"><h2>평가 작성</h2><label>평가 종류</label><select id="evaluationType"><option value="peer">조원 평가 (같은 조)</option><option value="presenter">발표자 평가</option></select><div class="student-row"><label>학번으로 학생 검색</label><div style="display:flex;gap:8px"><input id="search" inputmode="numeric" placeholder="예: 21024"><button type="button" id="searchBtn">검색</button></div></div><div id="target"></div><form id="feedbackForm" style="display:none"><input type="hidden" name="target_number" id="targetNumber"><input type="hidden" name="evaluation_type" id="evaluationTypeHidden"><h3 id="targetName"></h3><label>점수</label><select name="score"><option value="5">5점</option><option value="4">4점</option><option value="3">3점</option><option value="2">2점</option><option value="1">1점</option></select><label>코멘트</label><textarea name="content" maxlength="1000" placeholder="잘한 점, 개선점, 질문 등을 적어주세요." required></textarea><button type="submit">제출</button><div id="result"></div></form></div>
+<div class="card"><h2>내가 받은 코멘트</h2><p class="muted">평가자의 정보는 표시되지 않습니다.</p>{% for f in received %}<div class="comment"><div class="comment-meta">{{ '조원 평가' if f['evaluation_type']=='peer' else '발표자 평가' }} · 점수 {{ f['score'] }}/5 · {{ f['created_at']|kst }}</div><div class="comment-text">{{ f['content'] }}</div>{% if f['reply'] %}<div class="comment-reply"><strong>내 답문</strong><div>{{ f['reply'] }}</div></div>{% endif %}<details><summary>답문 보내기/수정</summary><form class="replyForm" data-id="{{ f['id'] }}"><textarea name="reply" maxlength="1000" placeholder="질문에 답하거나 답변을 남겨보세요.">{{ f['reply'] }}</textarea><button type="submit">답문 보내기</button><span class="replyResult"></span></form></details></div>{% else %}<div class="empty">받은 평가가 없습니다.</div>{% endfor %}</div>
+<div class="card"><h2>내가 보낸 평가</h2><p class="muted">상대방의 이름은 표시하지 않고, 답문이 달리면 여기에서 확인할 수 있습니다.</p>{% for f in sent %}<div class="comment"><div class="comment-meta">{{ '조원 평가' if f['evaluation_type']=='peer' else '발표자 평가' }} · 내 점수 {{ f['score'] }}/5 · {{ f['created_at']|kst }}</div><div class="comment-text">{{ f['content'] }}</div>{% if f['reply'] %}<div class="comment-reply"><strong>받은 답문</strong><div>{{ f['reply'] }}</div></div>{% else %}<div class="muted">아직 답문이 없습니다.</div>{% endif %}</div>{% else %}<div class="empty">보낸 평가가 없습니다.</div>{% endfor %}</div>
 <script>
-const textarea = document.getElementById("content");
-document.querySelectorAll(".emoji").forEach(button => button.addEventListener("click", () => {
-    if (!textarea) return;
-    const emoji = button.dataset.emoji, start = textarea.selectionStart, end = textarea.selectionEnd;
-    textarea.value = textarea.value.slice(0, start) + emoji + textarea.value.slice(end);
-    textarea.focus(); textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
-}));
-const form = document.getElementById("commentForm");
-if (form) form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const result = document.getElementById("result");
-    const response = await fetch("{{ url_for('add_comment') }}", {method:"POST", body:new FormData(form)});
-    const json = await response.json();
-    result.textContent = json.ok ? "코멘트를 보냈습니다. 👍" : (json.message || "전송에 실패했습니다.");
-    result.className = json.ok ? "success" : "error";
-    if (json.ok) form.reset();
-});
-</script>
-{% endblock %}
+const search=document.getElementById('search'), target=document.getElementById('target'), form=document.getElementById('feedbackForm'), type=document.getElementById('evaluationType');
+async function findStudent(){const q=search.value.trim();if(!q)return;const r=await fetch('/api/student-search?type='+type.value+'&q='+encodeURIComponent(q));const j=await r.json();if(!j.found){target.textContent=type.value==='peer'?'같은 조원을 찾을 수 없습니다.':'발표자 평가 대상 학생을 찾을 수 없습니다.';form.style.display='none';return}target.textContent='';document.getElementById('targetNumber').value=j.student_number;document.getElementById('evaluationTypeHidden').value=type.value;document.getElementById('targetName').textContent=j.student_number+' '+j.name;form.style.display='block';}
+document.getElementById('searchBtn')?.addEventListener('click',findStudent);search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findStudent()}});type?.addEventListener('change',()=>{target.textContent='';form.style.display='none';});
+form?.addEventListener('submit',async e=>{e.preventDefault();const r=await fetch('/api/feedback',{method:'POST',body:new FormData(form)}),j=await r.json();const el=document.getElementById('result');el.textContent=j.ok?'제출되었습니다.':'전송 실패: '+j.message;el.className=j.ok?'success':'error';if(j.ok){form.reset();form.style.display='none';search.value='';}});
+document.querySelectorAll('.replyForm').forEach(f=>f.addEventListener('submit',async e=>{e.preventDefault();const r=await fetch('/api/feedback/'+f.dataset.id+'/reply',{method:'POST',body:new FormData(f)}),j=await r.json();f.querySelector('.replyResult').textContent=j.ok?' 저장되었습니다.':' '+j.message}));
+</script>{% endblock %}
