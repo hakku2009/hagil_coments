@@ -17,11 +17,13 @@ def get_db():
 
 def init_db():
     conn = get_db()
-    conn.execute("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1))")
+    conn.execute("CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), teacher_password TEXT NOT NULL DEFAULT '1234')")
     conn.execute("CREATE TABLE IF NOT EXISTS students (student_number TEXT PRIMARY KEY, name TEXT NOT NULL, password TEXT NOT NULL DEFAULT '1234', group_name TEXT NOT NULL DEFAULT '', session_token TEXT, last_seen INTEGER NOT NULL DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_number TEXT NOT NULL, sender_name TEXT NOT NULL, target_number TEXT NOT NULL, target_name TEXT NOT NULL, score INTEGER NOT NULL CHECK(score BETWEEN 1 AND 5), content TEXT NOT NULL, reply TEXT NOT NULL DEFAULT '', evaluation_type TEXT NOT NULL DEFAULT 'peer', created_at TEXT NOT NULL)")
     conn.execute("INSERT OR IGNORE INTO settings(id) VALUES(1)")
     # 기존 DB 호환
+    scols = {r[1] for r in conn.execute("PRAGMA table_info(settings)").fetchall()}
+    if "teacher_password" not in scols: conn.execute("ALTER TABLE settings ADD COLUMN teacher_password TEXT NOT NULL DEFAULT '1234'")
     cols = {r[1] for r in conn.execute("PRAGMA table_info(students)").fetchall()}
     if "password" not in cols: conn.execute("ALTER TABLE students ADD COLUMN password TEXT NOT NULL DEFAULT '1234'")
     if "group_name" not in cols: conn.execute("ALTER TABLE students ADD COLUMN group_name TEXT NOT NULL DEFAULT ''")
@@ -67,6 +69,10 @@ def sheet_sync(event, data):
         req=urllib.request.Request(SHEETS_WEBHOOK_URL,data=body,headers={"Content-Type":"application/json"},method="POST")
         urllib.request.urlopen(req,timeout=3).read()
     except Exception as e: app.logger.warning("Google Sheets sync failed: %s",e)
+
+def get_teacher_password():
+    conn=get_db(); row=conn.execute("SELECT teacher_password FROM settings WHERE id=1").fetchone(); conn.close()
+    return row["teacher_password"] if row and row["teacher_password"] else TEACHER_PASSWORD
 
 def get_student(n):
     conn=get_db(); r=conn.execute("SELECT * FROM students WHERE student_number=?",(n,)).fetchone(); conn.close(); return r
@@ -128,6 +134,29 @@ def reply_feedback(feedback_id):
     if not row: conn.close(); return jsonify(ok=False,message="평가를 찾을 수 없습니다."),404
     conn.execute("UPDATE feedback SET reply=? WHERE id=?",(reply,feedback_id)); conn.commit(); conn.close(); return jsonify(ok=True)
 
+@app.route("/student/change-password",methods=["POST"])
+@student_required
+def student_change_password():
+    current=request.form.get("current_password","")
+    new=request.form.get("new_password","")
+    confirm=request.form.get("confirm_password","")
+    if not current or not new or not confirm:
+        flash("현재 비밀번호와 새 비밀번호를 모두 입력해 주세요.")
+        return redirect(url_for("student"))
+    if len(new) < 4:
+        flash("새 비밀번호는 4자 이상으로 설정해 주세요.")
+        return redirect(url_for("student"))
+    if new != confirm:
+        flash("새 비밀번호가 서로 다릅니다.")
+        return redirect(url_for("student"))
+    conn=get_db(); row=conn.execute("SELECT password FROM students WHERE student_number=?",(session["student_number"],)).fetchone()
+    if not row or row["password"] != current:
+        conn.close(); flash("현재 비밀번호가 맞지 않습니다.")
+        return redirect(url_for("student"))
+    conn.execute("UPDATE students SET password=? WHERE student_number=?",(new,session["student_number"]))
+    conn.commit(); conn.close(); flash("학생 비밀번호가 변경되었습니다.")
+    return redirect(url_for("student"))
+
 @app.route("/api/student-search")
 @student_required
 def student_search():
@@ -139,7 +168,7 @@ def student_search():
 @app.route("/teacher/login",methods=["GET","POST"])
 def teacher_login():
     if request.method=="POST":
-        if request.form.get("password")==TEACHER_PASSWORD: session.clear(); session["teacher"]=True; return redirect(url_for("teacher"))
+        if request.form.get("password")==get_teacher_password(): session.clear(); session["teacher"]=True; return redirect(url_for("teacher"))
         flash("비밀번호가 맞지 않습니다.")
     return render_template("teacher_login.html")
 
@@ -147,6 +176,28 @@ def teacher_login():
 @teacher_required
 def teacher():
     conn=get_db(); students=conn.execute("SELECT s.student_number,s.name,s.group_name,AVG(f.score) avg_score,AVG(CASE WHEN f.evaluation_type='peer' THEN f.score END) peer_avg,AVG(CASE WHEN f.evaluation_type='presenter' THEN f.score END) presenter_avg,COUNT(f.id) feedback_count FROM students s LEFT JOIN feedback f ON f.target_number=s.student_number GROUP BY s.student_number ORDER BY s.student_number").fetchall(); feedbacks=conn.execute("SELECT * FROM feedback ORDER BY id DESC").fetchall(); conn.close(); return render_template("teacher.html",students=students,feedbacks=feedbacks)
+
+@app.route("/teacher/change-password",methods=["POST"])
+@teacher_required
+def teacher_change_password():
+    current=request.form.get("current_password","")
+    new=request.form.get("new_password","")
+    confirm=request.form.get("confirm_password","")
+    if not current or not new or not confirm:
+        flash("현재 비밀번호와 새 비밀번호를 모두 입력해 주세요.")
+        return redirect(url_for("teacher"))
+    if len(new) < 4:
+        flash("새 비밀번호는 4자 이상으로 설정해 주세요.")
+        return redirect(url_for("teacher"))
+    if new != confirm:
+        flash("새 비밀번호가 서로 다릅니다.")
+        return redirect(url_for("teacher"))
+    if current != get_teacher_password():
+        flash("현재 관리자 비밀번호가 맞지 않습니다.")
+        return redirect(url_for("teacher"))
+    conn=get_db(); conn.execute("UPDATE settings SET teacher_password=? WHERE id=1",(new,)); conn.commit(); conn.close()
+    flash("선생님 관리 비밀번호가 변경되었습니다.")
+    return redirect(url_for("teacher"))
 
 @app.route("/teacher/group",methods=["POST"])
 @teacher_required
