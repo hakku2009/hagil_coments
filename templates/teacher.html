@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h1>선생님 관리</h1>
+    <form method="post" action="{{ url_for('set_presenter') }}">
+        <label>현재 발표자</label>
+        <select name="presenter_number">
+            <option value="">-- 발표자 없음 --</option>
+            {% for student in students %}
+            <option value="{{ student['student_number'] }}" {% if presenter and presenter.number == student['student_number'] %}selected{% endif %}>
+                {{ student['student_number'] }} {{ student['name'] }} (받은 코멘트 {{ student['comment_count'] }}개)
+            </option>
+            {% endfor %}
+        </select>
+        <button type="submit">발표자 설정</button>
+    </form>
+    <div class="presenter-box"><span>현재 발표자</span><strong>{% if presenter %}{{ presenter.number }} {{ presenter.name }}{% else %}없음{% endif %}</strong></div>
+</div>
+
+<div class="card">
+    <h2>학생별 코멘트 기록</h2>
+    <p class="muted">학생을 눌러 해당 학번에 저장된 코멘트를 확인하거나 접속을 강제로 종료할 수 있습니다.</p>
+    {% for student in students %}
+    <div class="student-row">
+        <a class="student-link" href="{{ url_for('teacher_student_detail', student_number=student['student_number']) }}">
+            <div><strong>{{ student['student_number'] }} {{ student['name'] }}</strong>{% if presenter and presenter.number == student['student_number'] %}<span class="presenter-tag">현재 발표자</span>{% endif %}</div>
+            <span class="count-badge">{{ student['comment_count'] }}개</span>
+        </a>
+        <form method="post" action="{{ url_for('force_logout_student', student_number=student['student_number']) }}" onsubmit="return confirm('{{ student['student_number'] }} {{ student['name'] }} 학생의 접속을 강제로 종료할까요?');">
+            <button class="danger small" type="submit">강제 로그아웃</button>
+        </form>
+    </div>
+    {% else %}<div class="empty">아직 등록된 학생이 없습니다.</div>{% endfor %}
+</div>
+
+<div class="card">
+    <div class="section-header"><h2>전체 코멘트</h2>
+        <form method="post" action="{{ url_for('clear_comments') }}" onsubmit="return confirm('모든 코멘트를 삭제할까요? 삭제하면 복구할 수 없습니다.');"><button class="danger" type="submit">전체 삭제</button></form>
+    </div>
+    <div id="teacher-comments">
+        {% for c in comments %}
+        <div class="comment"><div class="comment-meta">{{ c["sender_number"] }} {{ c["sender_name"] }} → {{ c["presenter_number"] }} {{ c["presenter_name"] }}</div><div class="comment-text">{{ c["content"] }}</div><div class="comment-time">{{ c["created_at"]|kst }}</div></div>
+        {% else %}<div class="empty">아직 코멘트가 없습니다.</div>{% endfor %}
+    </div>
+</div>
+<script>
+let lastCount={{ comments|length }};
+async function refreshTeacherComments(){const r=await fetch("{{ url_for('teacher_comments') }}");if(!r.ok)return;const cs=await r.json();if(cs.length===lastCount)return;lastCount=cs.length;document.getElementById("teacher-comments").innerHTML=cs.map(c=>`<div class="comment"><div class="comment-meta">${escapeHtml(c.sender)} → ${escapeHtml(c.presenter)}</div><div class="comment-text">${escapeHtml(c.content)}</div><div class="comment-time">${escapeHtml(c.created_at)}</div></div>`).join("");}
+function escapeHtml(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");} setInterval(refreshTeacherComments,2000);
+</script>
+{% endblock %}

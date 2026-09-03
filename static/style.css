@@ -1,0 +1,326 @@
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, "Noto Sans KR", sans-serif;
+    background: #f4f6f8;
+    color: #20252b;
+}
+
+.topbar {
+    height: 60px;
+    background: white;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.brand {
+    font-weight: 800;
+    font-size: 20px;
+}
+
+.logout {
+    color: #555;
+    text-decoration: none;
+}
+
+.container {
+    width: min(720px, calc(100% - 28px));
+    margin: 30px auto;
+}
+
+.card {
+    background: white;
+    border-radius: 18px;
+    padding: 25px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.06);
+}
+
+.login-card {
+    max-width: 450px;
+    margin: 60px auto;
+}
+
+h1 {
+    margin-top: 0;
+}
+
+label {
+    display: block;
+    font-weight: 700;
+    margin: 14px 0 7px;
+}
+
+input, textarea, select {
+    width: 100%;
+    border: 1px solid #ccd2d8;
+    border-radius: 10px;
+    padding: 13px;
+    font-size: 16px;
+    outline: none;
+    background: white;
+}
+
+textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: #555;
+}
+
+button, .button {
+    display: inline-block;
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 18px;
+    margin-top: 14px;
+    background: #20252b;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button:hover, .button:hover {
+    opacity: .88;
+}
+
+.full {
+    width: 100%;
+    text-align: center;
+}
+
+.secondary {
+    background: #555;
+}
+
+.danger {
+    background: #b42318;
+    margin-top: 0;
+}
+
+.teacher-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #555;
+}
+
+.muted {
+    color: #707780;
+}
+
+.presenter-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0f2f4;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 18px 0;
+}
+
+.notice {
+    padding: 14px;
+    background: #f0f2f4;
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+.flash {
+    background: #fff4cc;
+    padding: 12px 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.success {
+    margin-top: 15px;
+    color: #087f3e;
+    font-weight: 700;
+}
+
+.error {
+    margin-top: 15px;
+    color: #b42318;
+    font-weight: 700;
+}
+
+.comment {
+    border: 1px solid #e1e5e8;
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 12px;
+}
+
+.comment-meta {
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.comment-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+    font-size: 16px;
+}
+
+.comment-time {
+    color: #8a9198;
+    font-size: 12px;
+    margin-top: 9px;
+}
+
+.empty {
+    color: #888;
+    text-align: center;
+    padding: 35px 10px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.emoji-row {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+
+button.emoji {
+    margin-top: 0;
+    padding: 8px 10px;
+    background: #f0f2f4;
+    color: #20252b;
+    font-size: 22px;
+    border: 1px solid #d9dde1;
+}
+
+@media (max-width: 560px) {
+    .container {
+        margin: 18px auto;
+    }
+
+    .card {
+        padding: 18px;
+        border-radius: 14px;
+    }
+
+    .section-header {
+        align-items: flex-start;
+    }
+
+    .presenter-box {
+        gap: 10px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+.brand {
+    color: #20252b;
+    text-decoration: none;
+}
+
+.brand:hover {
+    opacity: .75;
+}
+
+.lobby-card {
+    max-width: 500px;
+    margin: 60px auto;
+    text-align: center;
+}
+
+.student-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    border: 1px solid #e1e5e8;
+    border-radius: 12px;
+    padding: 13px 15px;
+    margin-top: 10px;
+}
+
+.presenter-tag {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: #f0f2f4;
+    font-size: 12px;
+}
+
+.small {
+    padding: 9px 12px;
+    margin-top: 0;
+    font-size: 14px;
+}
+
+@media (max-width: 560px) {
+    .student-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .student-row form,
+    .student-row .small {
+        width: 100%;
+    }
+}
+
+.user-badge { color: #707780; font-size: 14px; font-weight: 700; }
+.student-link { display:flex; color:#20252b; text-decoration:none; }
+.student-link:hover { background:#fafbfc; }
+.count-badge { font-size:13px; color:#707780; white-space:nowrap; }
+.back-link { color:#555; text-decoration:none; font-weight:700; }
+
+/* 선생님 관리: 학생별 강제 로그아웃 */
+.student-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.student-row .student-link {
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    color: inherit;
+}
+.student-row form {
+    margin: 0;
+    flex-shrink: 0;
+}
+button.small {
+    padding: 8px 10px;
+    font-size: 13px;
+}
+@media (max-width: 600px) {
+    .student-row {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+    .student-row .student-link {
+        flex-basis: 100%;
+    }
+    .student-row form {
+        width: 100%;
+    }
+    .student-row form button {
+        width: 100%;
+    }
+}

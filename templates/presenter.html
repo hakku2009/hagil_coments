@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <p class="muted">나의 코멘트 기록</p>
+    <h1>{{ student_number }} {{ student_name }}</h1>
+    <div class="notice">발표할 때마다 받은 코멘트가 날짜와 시간과 함께 계속 누적됩니다.</div>
+    <div id="comments">
+        {% for c in comments %}
+        <div class="comment">
+            <div class="comment-meta">{{ c["sender_number"] }} {{ c["sender_name"] }}</div>
+            <div class="comment-text">{{ c["content"] }}</div>
+            <div class="comment-time">{{ c["created_at"]|kst }}</div>
+        </div>
+        {% else %}<div class="empty">아직 코멘트가 없습니다.</div>{% endfor %}
+    </div>
+</div>
+<script>
+let lastCount = {{ comments|length }};
+async function refreshComments() {
+    const response = await fetch("{{ url_for('presenter_comments') }}"); if (!response.ok) return;
+    const comments = await response.json(); if (comments.length === lastCount) return; lastCount = comments.length;
+    document.getElementById("comments").innerHTML = comments.length ? comments.map(c => `
+      <div class="comment"><div class="comment-meta">${escapeHtml(c.sender)}</div>
+      <div class="comment-text">${escapeHtml(c.content)}</div><div class="comment-time">${escapeHtml(c.created_at)}</div></div>`).join("") : '<div class="empty">아직 코멘트가 없습니다.</div>';
+}
+function escapeHtml(value){return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
+setInterval(refreshComments, 2000);
+</script>
+{% endblock %}
