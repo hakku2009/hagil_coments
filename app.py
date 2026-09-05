@@ -67,8 +67,42 @@ def sheet_sync(event, data):
     try:
         body=json.dumps({"event":event, **data}, ensure_ascii=False).encode()
         req=urllib.request.Request(SHEETS_WEBHOOK_URL,data=body,headers={"Content-Type":"application/json"},method="POST")
-        urllib.request.urlopen(req,timeout=3).read()
+        urllib.request.urlopen(req,timeout=5).read()
     except Exception as e: app.logger.warning("Google Sheets sync failed: %s",e)
+
+def sheet_load_feedbacks():
+    """Google Sheets를 영구 저장소로 사용하기 위한 평가내역 복구."""
+    if not SHEETS_WEBHOOK_URL: return None
+    try:
+        with urllib.request.urlopen(SHEETS_WEBHOOK_URL + "?action=feedbacks", timeout=5) as r:
+            data=json.loads(r.read().decode("utf-8"))
+        if data.get("ok") is not True or not isinstance(data.get("feedbacks"), list):
+            return None
+        return data["feedbacks"]
+    except Exception as e:
+        app.logger.warning("Google Sheets load failed: %s", e)
+        return None
+
+def restore_feedbacks_from_sheets():
+    rows=sheet_load_feedbacks()
+    if rows is None: return
+    conn=get_db()
+    conn.execute("DELETE FROM feedback")
+    for r in rows:
+        try:
+            score=int(r.get("score", 0))
+            if not (1 <= score <= 5): continue
+            conn.execute(
+                "INSERT INTO feedback(id,sender_number,sender_name,target_number,target_name,score,content,reply,evaluation_type,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (r.get("id") or None, str(r.get("sender_number", "")), str(r.get("sender_name", "")),
+                 str(r.get("target_number", "")), str(r.get("target_name", "")), score,
+                 str(r.get("content", "")), str(r.get("reply", "")),
+                 r.get("evaluation_type") if r.get("evaluation_type") in ("peer", "presenter") else "peer",
+                 str(r.get("created_at", "")))
+            )
+        except Exception as e:
+            app.logger.warning("Skipping invalid sheet row: %s", e)
+    conn.commit(); conn.close()
 
 def get_teacher_password():
     conn=get_db(); row=conn.execute("SELECT teacher_password FROM settings WHERE id=1").fetchone(); conn.close()
@@ -123,7 +157,8 @@ def add_feedback():
     created=now_iso()
     if existing: conn.execute("UPDATE feedback SET score=?,content=?,created_at=? WHERE id=?",(score,content,created,existing["id"]))
     else: conn.execute("INSERT INTO feedback(sender_number,sender_name,target_number,target_name,score,content,evaluation_type,created_at) VALUES(?,?,?,?,?,?,?,?)",(sender["student_number"],sender["name"],target,target_row["name"],score,content,evaluation_type,created))
-    conn.commit(); conn.close(); sheet_sync("feedback",{"sender_number":sender["student_number"],"target_number":target,"score":score,"content":content,"evaluation_type":evaluation_type,"created_at":created}); return jsonify(ok=True)
+    feedback_id = existing["id"] if existing else conn.execute("SELECT last_insert_rowid() ").fetchone()[0]
+    conn.commit(); conn.close(); sheet_sync("feedback",{"feedback_id":feedback_id,"sender_number":sender["student_number"],"sender_name":sender["name"],"target_number":target,"target_name":target_row["name"],"score":score,"content":content,"reply":"","evaluation_type":evaluation_type,"created_at":created}); return jsonify(ok=True)
 
 @app.route("/api/feedback/<int:feedback_id>/reply",methods=["POST"])
 @student_required
@@ -132,7 +167,7 @@ def reply_feedback(feedback_id):
     if len(reply)>1000: return jsonify(ok=False,message="답변은 1000자 이하입니다."),400
     conn=get_db(); row=conn.execute("SELECT * FROM feedback WHERE id=? AND target_number=?",(feedback_id,session["student_number"])).fetchone()
     if not row: conn.close(); return jsonify(ok=False,message="평가를 찾을 수 없습니다."),404
-    conn.execute("UPDATE feedback SET reply=? WHERE id=?",(reply,feedback_id)); conn.commit(); conn.close(); return jsonify(ok=True)
+    conn.execute("UPDATE feedback SET reply=? WHERE id=?",(reply,feedback_id)); conn.commit(); conn.close(); sheet_sync("reply",{"feedback_id":feedback_id,"reply":reply}); return jsonify(ok=True)
 
 @app.route("/student/change-password",methods=["POST"])
 @student_required
@@ -243,4 +278,5 @@ def teacher_feedbacks():
 def logout(): session.clear(); return redirect(url_for("index"))
 
 init_db()
+restore_feedbacks_from_sheets()
 if __name__=="__main__": app.run(host=os.environ.get("HOST","0.0.0.0"),port=int(os.environ.get("PORT","5000")),debug=False)
