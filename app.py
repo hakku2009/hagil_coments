@@ -2,6 +2,7 @@ import os, sqlite3, secrets, json, urllib.request, urllib.parse
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
+import requests
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
@@ -73,24 +74,57 @@ def sheet_url(action=None):
 
 
 def sheet_sync(event, data):
+    """Google Sheets Apps Script로 데이터를 동기화합니다."""
     if not SHEETS_WEBHOOK_URL:
-        return False
-    try:
-        body = json.dumps({"event": event, **data}, ensure_ascii=False).encode("utf-8")
-        req = urllib.request.Request(
-            SHEETS_WEBHOOK_URL,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        app.logger.error(
+            "[Sheets] GOOGLE_SHEETS_WEBHOOK_URL 환경변수가 비어 있습니다."
         )
-        with urllib.request.urlopen(req, timeout=10) as r:
-            result = json.loads(r.read().decode("utf-8"))
-        if result.get("ok") is False:
-            app.logger.warning("Google Sheets rejected sync: %s", result)
-            return False
-        return True
+        return False
+
+    payload = {
+        "event": event,
+        "data": data
+    }
+
+    app.logger.info(
+        "[Sheets] POST 시작 event=%s url_configured=%s",
+        event,
+        bool(SHEETS_WEBHOOK_URL)
+    )
+
+    try:
+        response = requests.post(
+            SHEETS_WEBHOOK_URL,
+            json=payload,
+            timeout=15
+        )
+
+        raw = response.text[:1000]
+
+        app.logger.info(
+            "[Sheets] POST 결과 event=%s status=%s response=%s",
+            event,
+            response.status_code,
+            raw
+        )
+
+        if response.ok:
+            return True
+
+        app.logger.error(
+            "[Sheets] POST 실패 event=%s status=%s response=%s",
+            event,
+            response.status_code,
+            raw
+        )
+        return False
+
     except Exception as e:
-        app.logger.exception("Google Sheets sync failed")
+        app.logger.exception(
+            "[Sheets] POST 예외 event=%s error=%s",
+            event,
+            e
+        )
         return False
 
 
