@@ -1,61 +1,103 @@
 // Google Apps Script
-// 1) Google 스프레드시트에서 확장 프로그램 > Apps Script에 붙여넣습니다.
-// 2) 배포 > 새 배포 > 웹 앱
-//    실행 사용자: 나 / 액세스 권한: 모든 사용자
-// 3) 생성된 웹 앱 URL을 Render의 GOOGLE_SHEETS_WEBHOOK_URL에 넣습니다.
-
+// Google Sheets를 영구 저장소로 사용하는 버전입니다.
 const SHEET_NAME = '평가내역';
-const HEADERS = ['시간','이벤트','평가 종류','평가한 학생 학번','평가 대상 학번','점수','코멘트'];
+const HEADERS = ['ID','시간','이벤트','평가 종류','평가한 학생 학번','평가한 학생 이름','평가 대상 학번','평가 대상 이름','점수','코멘트','답문'];
 
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(HEADERS);
+    sheet.getRange(1,1,1,HEADERS.length).setValues([HEADERS]);
   }
+  migrateHeaders_(sheet);
   return sheet;
 }
 
+function migrateHeaders_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1,1,1,HEADERS.length).setValues([HEADERS]);
+    return;
+  }
+  const oldHeaders = sheet.getRange(1,1,1,Math.max(sheet.getLastColumn(),1)).getValues()[0].map(String);
+  const same = HEADERS.length === oldHeaders.length && HEADERS.every((h,i) => h === oldHeaders[i]);
+  if (same) return;
+
+  const values = sheet.getLastRow() > 1 ? sheet.getRange(2,1,sheet.getLastRow()-1,oldHeaders.length).getValues() : [];
+  const index = {}; oldHeaders.forEach((h,i) => index[h]=i);
+  const converted = values.map(row => HEADERS.map(h => index[h] !== undefined ? row[index[h]] : ''));
+  sheet.clearContents();
+  sheet.getRange(1,1,1,HEADERS.length).setValues([HEADERS]);
+  if (converted.length) sheet.getRange(2,1,converted.length,HEADERS.length).setValues(converted);
+}
+
 function doGet(e) {
-  return ContentService
-    .createTextOutput('Google Sheets 연결 정상')
+  const action = e && e.parameter ? e.parameter.action : '';
+  if (action === 'feedbacks') {
+    const sheet = getSheet_();
+    const lastRow = sheet.getLastRow();
+    const result = [];
+    if (lastRow > 1) {
+      const values = sheet.getRange(2,1,lastRow-1,HEADERS.length).getValues();
+      values.forEach(row => {
+        if (!row[0] || !row[4] || !row[6]) return;
+        result.push({
+          id: Number(row[0]) || null,
+          created_at: row[1] instanceof Date ? row[1].toISOString() : String(row[1] || ''),
+          event: String(row[2] || ''),
+          evaluation_type: String(row[3] || 'peer'),
+          sender_number: String(row[4] || ''),
+          sender_name: String(row[5] || ''),
+          target_number: String(row[6] || ''),
+          target_name: String(row[7] || ''),
+          score: Number(row[8]) || 0,
+          content: String(row[9] || ''),
+          reply: String(row[10] || '')
+        });
+      });
+    }
+    return ContentService.createTextOutput(JSON.stringify({ok:true, feedbacks:result}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput('Google Sheets 연결 정상')
     .setMimeType(ContentService.MimeType.TEXT);
+}
+
+function findRowById_(sheet, id) {
+  if (!id || sheet.getLastRow() < 2) return -1;
+  const ids = sheet.getRange(2,1,sheet.getLastRow()-1,1).getValues();
+  for (let i=0; i<ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
+  return -1;
 }
 
 function doPost(e) {
   const data = JSON.parse((e.postData && e.postData.contents) || '{}');
   const sheet = getSheet_();
 
-  // Flask에서 '평가 초기화'를 누르면 평가내역 시트의 데이터도 삭제하고
-  // 첫 번째 헤더 행은 남겨둡니다.
   if (data.event === 'reset_feedbacks') {
-    const lastRow = sheet.getLastRow();
-    const lastColumn = Math.max(sheet.getLastColumn(), HEADERS.length);
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
-    }
-    return ContentService
-      .createTextOutput(JSON.stringify({ok:true, reset:true}))
+    if (sheet.getLastRow() > 1) sheet.getRange(2,1,sheet.getLastRow()-1,HEADERS.length).clearContent();
+    return ContentService.createTextOutput(JSON.stringify({ok:true, reset:true}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // 헤더가 오래된 버전이라면 부족한 열을 추가합니다.
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(HEADERS);
+  if (data.event === 'reply') {
+    const row = findRowById_(sheet, data.feedback_id);
+    if (row > 0) sheet.getRange(row,11).setValue(data.reply || '');
+    return ContentService.createTextOutput(JSON.stringify({ok:true, updated:row > 0}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
-  sheet.appendRow([
-    data.created_at || new Date().toISOString(),
-    data.event || '',
-    data.evaluation_type || '',
-    data.sender_number || '',
-    data.target_number || '',
-    data.score || '',
-    data.content || ''
-  ]);
+  if (data.event === 'feedback') {
+    const values = [
+      data.feedback_id || '', data.created_at || new Date().toISOString(), 'feedback',
+      data.evaluation_type || 'peer', data.sender_number || '', data.sender_name || '',
+      data.target_number || '', data.target_name || '', data.score || '', data.content || '', data.reply || ''
+    ];
+    const row = findRowById_(sheet, data.feedback_id);
+    if (row > 0) sheet.getRange(row,1,1,HEADERS.length).setValues([values]);
+    else sheet.appendRow(values);
+  }
 
-  return ContentService
-    .createTextOutput(JSON.stringify({ok:true}))
+  return ContentService.createTextOutput(JSON.stringify({ok:true}))
     .setMimeType(ContentService.MimeType.JSON);
 }
